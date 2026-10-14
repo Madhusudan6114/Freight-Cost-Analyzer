@@ -234,3 +234,58 @@ class TestLoadShipments:
         assert len(df) == 2940
         assert "route" in df.columns
         assert set(df["route_type"].unique()) == {"Short", "Medium", "Long"}
+
+
+class TestSampleOutputCompliance:
+    """Verifies that the analytics pipeline strictly reproduces the assignment's official sample rows."""
+
+    @pytest.fixture(scope="module")
+    def pipeline_output(self):
+        from analytics import run_analytics
+        from note_matcher import load_notes, NoteMatcherDeterministic
+        from main import process_anomalies, build_output
+
+        weekly = run_analytics("data/shipment_records.csv")
+        notes = load_notes("data/context_notes.csv")
+        matcher = NoteMatcherDeterministic()
+        anomalies = process_anomalies(weekly, notes, matcher)
+        output = build_output(weekly, anomalies)
+        return output
+
+    def test_delhi_jaipur_ground_truth(self, pipeline_output):
+        row = pipeline_output[
+            (pipeline_output["route"] == "Delhi-Jaipur") &
+            (pipeline_output["week_of"] == "2024-11-11")
+        ]
+        assert len(row) == 1, "Delhi-Jaipur 2024-11-11 must be flagged"
+        r = row.iloc[0]
+        assert r["cost_per_tonne_km"] == 4.17
+        assert r["vs_own_history"] == "+35.5% vs this route's past average"
+        assert r["vs_similar_routes"] == "+21.0% vs similar-length routes this week"
+        assert r["flagged"] == "Yes"
+
+    def test_ahmedabad_mumbai_ground_truth(self, pipeline_output):
+        row = pipeline_output[
+            (pipeline_output["route"] == "Ahmedabad-Mumbai") &
+            (pipeline_output["week_of"] == "2025-01-20")
+        ]
+        assert len(row) == 1, "Ahmedabad-Mumbai 2025-01-20 must be flagged"
+        r = row.iloc[0]
+        assert r["cost_per_tonne_km"] == 3.29
+        assert r["vs_own_history"] == "+29.5% vs this route's past average"
+        assert r["vs_similar_routes"] == "+22.5% vs similar-length routes this week"
+        assert r["flagged"] == "No (justified)"
+        assert r["matched_note_id"] == "N002"
+
+    def test_mumbai_pune_ground_truth(self, pipeline_output):
+        row = pipeline_output[
+            (pipeline_output["route"] == "Mumbai-Pune") &
+            (pipeline_output["week_of"] == "2025-09-15")
+        ]
+        assert len(row) == 1, "Mumbai-Pune 2025-09-15 must be flagged"
+        r = row.iloc[0]
+        assert r["cost_per_tonne_km"] == 3.98
+        assert r["vs_own_history"] == "+9.2% vs this route's past average"
+        assert r["vs_similar_routes"] == "+23.6% vs similar-length routes this week"
+        assert r["flagged"] == "Yes"
+

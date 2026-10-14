@@ -140,6 +140,7 @@ class NoteMatcherLLM:
             messages=[{"role": "user", "content": prompt}],
             temperature=self.temperature,
             max_tokens=300,
+            response_format={"type": "json_object"},
         )
 
         # Track tokens

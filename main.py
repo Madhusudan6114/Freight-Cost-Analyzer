@@ -2,7 +2,7 @@
 Main pipeline: runs analytics, matches notes, generates output CSV.
 
 Usage:
-    python main.py                          # Full run with LLM (needs GEMINI_API_KEY)
+    python main.py                          # Full run with LLM (needs GROQ_API_KEY)
     python main.py --no-llm                 # Run with deterministic matcher (no API key needed)
     python main.py --run-id 1               # Tag output files with a run ID (for reproducibility checks)
     python main.py --chat                   # Interactive Q&A after analysis (stretch goal)
@@ -157,6 +157,17 @@ def main():
     # Config from env
     history_threshold = float(os.getenv("HISTORY_THRESHOLD", "15.0"))
     peer_threshold = float(os.getenv("PEER_THRESHOLD", "15.0"))
+
+    # Validate input file paths
+    if not os.path.exists(args.shipments):
+        print(f"Error: Shipment records file not found at '{args.shipments}'.", file=sys.stderr)
+        print("Please check the path or run from the project root.", file=sys.stderr)
+        sys.exit(1)
+
+    if not os.path.exists(args.notes):
+        print(f"Error: Context notes file not found at '{args.notes}'.", file=sys.stderr)
+        print("Please check the path or run from the project root.", file=sys.stderr)
+        sys.exit(1)
 
     print("=" * 60)
     print("FreightTiger Shipping Cost Anomaly Detector")
